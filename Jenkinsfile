@@ -23,25 +23,28 @@ pipeline {
         }
       }
     }
-    stage('Docker Build') {
-      steps {
-        sh """
-          docker build -t ${IMAGE}:${IMG_TAG} -t ${IMAGE}:latest .
-        """
-      }
-    }
-    stage('Docker Push') {
+
+    stage('Docker Build & Push (amd64)') {
       steps {
         withCredentials([usernamePassword(credentialsId: CREDS, usernameVariable: 'U', passwordVariable: 'P')]) {
-          sh """
+          sh '''
+            set -e
             echo "$P" | docker login -u "$U" --password-stdin ${REGISTRY}
-            docker push ${IMAGE}:${IMG_TAG}
-            docker push ${IMAGE}:latest
+
+            docker buildx create --use --name msbuilder || true
+            docker buildx inspect --bootstrap
+
+            docker buildx build --platform linux/amd64 \
+              -t ${IMAGE}:${IMG_TAG} \
+              -t ${IMAGE}:latest \
+              --push .
+
             docker logout ${REGISTRY}
-          """
+          '''
         }
       }
     }
+
     stage('Deploy to OpenShift') {
       steps {
         withCredentials([string(credentialsId: 'oc-token', variable: 'OC_TOKEN')]) {
