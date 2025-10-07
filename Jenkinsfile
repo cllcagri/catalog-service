@@ -11,11 +11,11 @@ pipeline {
     stage('Checkout') {
       steps { checkout scm }
     }
+
     stage('Build & Test') {
-      steps {
-        sh './mvnw clean package -DskipTests'
-      }
+      steps { sh './mvnw clean package -DskipTests' }
     }
+
     stage('Tag') {
       steps {
         script {
@@ -71,8 +71,11 @@ pipeline {
         }
       }
     }
+  }
 
   post {
-    always { archiveArtifacts artifacts: 'target/*.jar', onlyIfSuccessful: false }
+    success { echo '✅ catalog-service: deploy OK' }
+    failure { echo '❌ catalog-service: pipeline failed' }
+    always  { archiveArtifacts artifacts: 'target/*.jar', onlyIfSuccessful: false }
   }
 }
