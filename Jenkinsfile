@@ -42,6 +42,18 @@ pipeline {
         }
       }
     }
+    stage('Deploy to OpenShift') {
+      steps {
+        withCredentials([string(credentialsId: 'oc-token', variable: 'OC_TOKEN')]) {
+          sh """
+            oc login --token="$OC_TOKEN" --server="https://api.rm2.thpm.p1.openshiftapps.com:6443" --insecure-skip-tls-verify=true
+            oc project c-cagriyilmaz-dev
+            oc set image deploy/catalog-service catalog-service=${IMAGE}:${IMG_TAG} --record=true || true
+            oc rollout status deploy/catalog-service
+          """
+        }
+      }
+    }
   }
 
   post {
