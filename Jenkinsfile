@@ -45,16 +45,29 @@ pipeline {
     stage('Deploy to OpenShift') {
       steps {
         withCredentials([string(credentialsId: 'oc-token', variable: 'OC_TOKEN')]) {
-          sh """
+          sh '''
+            set -e
             oc login --token="$OC_TOKEN" --server="https://api.rm2.thpm.p1.openshiftapps.com:6443" --insecure-skip-tls-verify=true
             oc project c-cagriyilmaz-dev
-            oc set image deploy/catalog-service catalog-service=${IMAGE}:${IMG_TAG} --record=true || true
+
+            echo "🟦 Applying manifests (create or update)..."
+            oc apply -f k8s/catalog-service.yaml
+
+            echo "🟦 Setting image to the fresh build tag..."
+            oc set image deploy/catalog-service catalog-service=${IMAGE}:${IMG_TAG} --record=true
+
+            echo "🟦 Ensuring replicas >= 1..."
+            CUR=$(oc get deploy/catalog-service -o jsonpath='{.spec.replicas}' || echo "0")
+            if [ -z "$CUR" ] || [ "$CUR" = "0" ]; then
+              oc scale deploy/catalog-service --replicas=1
+            fi
+
+            echo "🟦 Waiting for rollout..."
             oc rollout status deploy/catalog-service
-          """
+          '''
         }
       }
     }
-  }
 
   post {
     always { archiveArtifacts artifacts: 'target/*.jar', onlyIfSuccessful: false }
